@@ -29,6 +29,7 @@ import android.graphics.RectF;
 
 public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback, Runnable {
 
+	private static final String TAG = MJpegHttpStreamer.class.getSimpleName();
 	private static final boolean DEBUG = false;
 	protected Context context;
 	private SurfaceHolder holder;
@@ -64,6 +65,8 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	// for rendering to canvas
     private float scale_x, scale_y, pos_x;
 	private Matrix mx_canvas = new Matrix();
+	private MemoryOutputStream mJpegOutputStream = null;
+	private MJpegHttpStreamer mMJpegHttpStreamer = null;
 
     // JNI functions
     public native int prepareCamera(int videoid);
@@ -89,7 +92,11 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		
 		holder = getHolder();
 		holder.addCallback(this);
-		holder.setType(SurfaceHolder.SURFACE_TYPE_NORMAL);	
+		holder.setType(SurfaceHolder.SURFACE_TYPE_NORMAL);
+
+		mJpegOutputStream = new MemoryOutputStream(10000000);
+		mMJpegHttpStreamer = new MJpegHttpStreamer(2000, 10000000);
+		mMJpegHttpStreamer.start();
 	}
 	
     
@@ -155,12 +162,20 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	            	mx_canvas.postConcat(mx);
 	            	// second scale the image to fit the screen
 	            	mx_canvas.postConcat(canvas_pos_scale);
-	        		Log.d("canvas matrix",mx_canvas.toString());
+	        		Log.d("canvas matrix", mx_canvas.toString());
 
 	            	// draw camera bmp on canvas
 	            	canvas.drawBitmap(bmp, mx_canvas, null);
-	            	
-	            	getHolder().unlockCanvasAndPost(canvas);
+					bmp.compress(Bitmap.CompressFormat.JPEG, 80, mJpegOutputStream);
+					Log.d(TAG, "length of stream: " + mJpegOutputStream.getLength());
+					mMJpegHttpStreamer.streamJpeg(mJpegOutputStream.getBuffer(), mJpegOutputStream.getLength(),
+							System.currentTimeMillis());
+
+					// Clean up
+					mJpegOutputStream.seek(0);
+
+
+					getHolder().unlockCanvasAndPost(canvas);
 	            }
 	            else
 	            {
