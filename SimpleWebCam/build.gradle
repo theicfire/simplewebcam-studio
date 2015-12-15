@@ -2,12 +2,12 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 19
-    buildToolsVersion "23.0.0"
+    buildToolsVersion '21.1.2'
 
     defaultConfig {
         applicationId "com.camera.simplewebcam"
-        minSdkVersion 8
-        targetSdkVersion 8
+        minSdkVersion 18
+        targetSdkVersion 19
 
         ndk {
             moduleName "ImageProc"
@@ -25,4 +25,9 @@ android {
         jniLibs.srcDir 'src/main/libs'
         jni.srcDirs = [] //disable automatic ndk-build call
     }
+}
+
+dependencies {
+    compile 'com.android.support:support-v4:19.1.0'
+    compile 'com.google.android.gms:play-services:6.5.87'
 }

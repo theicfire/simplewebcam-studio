@@ -1,22 +1,27 @@
 package com.camera.simplewebcam;
 
-import com.camera.simplewebcam.R;
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.Intent;
 import android.graphics.Matrix;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PowerManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ImageButton;
+import android.app.KeyguardManager;
+import com.camera.simplewebcam.push.PushNotifications;
 
 public class Main extends Activity {
 	
 	private static final String PREFERENCES_MATRIX = "com.camera.simplewebcam.flipmatrix_";
+	private static final String WAKE_LOCK_TAG = "simplewebcam";
+	private static final String TAG = Main.class.getSimpleName();
 
 	private static final String MENU_ITEM_FLIPLR = "Flip Horizontal";
 	private static final int MENU_ITEM_ID_FLIPLR = 1;
@@ -28,7 +33,8 @@ public class Main extends Activity {
 	ImageButton takePictureButton;
 	SharedPreferences preferences;
 	SharedPreferences.Editor editor;
-	
+	private PowerManager.WakeLock mWakeLock = null;
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -41,9 +47,18 @@ public class Main extends Activity {
 		
 		takePictureButton = (ImageButton)findViewById(R.id.button1);
 		takePictureButton.setOnClickListener(tpListener);
-		
+
 		cp = (CameraPreview)findViewById(R.id.cameraSurfaceView);
 		cp.setButtonObject(tpListener);
+
+		final PowerManager powerManager =
+				(PowerManager) getSystemService(POWER_SERVICE);
+		mWakeLock = powerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+				WAKE_LOCK_TAG);
+
+				        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+		km.newKeyguardLock("name").disableKeyguard();
+		(new PushNotifications(getApplicationContext(), this)).runRegisterInBackground();
 		
 		//load preferences to matrix
 		Matrix tmp_mx = new Matrix();
@@ -57,6 +72,20 @@ public class Main extends Activity {
 		this.cp.mx.setValues(mx_array);
 		
 	}
+
+    @Override
+    protected void onResume()
+    {
+        super.onResume();
+        mWakeLock.acquire();
+    }
+
+    @Override
+    protected void onPause()
+    {
+        super.onPause();
+        mWakeLock.release();
+    }
 	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -67,7 +96,24 @@ public class Main extends Activity {
 		
 		return super.onCreateOptionsMenu(menu);
 	}
-	
+
+	protected void onNewIntent(Intent intent) {
+		super.onNewIntent(intent);
+		setIntent(intent);//must store the new intent unless getIntent() will return the old one
+		Log.d(TAG, "got intent");
+		String intentText = intent.getStringExtra(Intent.EXTRA_TEXT);
+		Log.d(TAG, "got intent text" + intentText);
+		if (intentText.equalsIgnoreCase("camera_on")) {
+			mWakeLock.acquire();
+		} else if (intentText.equalsIgnoreCase("camera_off")) {
+			Log.d(TAG, "TURN OFF");
+			// hacky but works!
+			android.os.Process.killProcess(android.os.Process.myPid());
+		}
+	}
+
+
+
 	@SuppressWarnings("null")
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {

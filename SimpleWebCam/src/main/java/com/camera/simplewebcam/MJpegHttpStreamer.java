@@ -25,7 +25,7 @@ import java.net.Socket;
 {
     private static final String TAG = MJpegHttpStreamer.class.getSimpleName();
 
-    private static final String BOUNDARY = "--gc0p4Jq0M2Yt08jU534c0p--";
+    private static final String BOUNDARY = "--myboundary";
     private static final String BOUNDARY_LINES = "\r\n" + BOUNDARY + "\r\n";
 
     private static final String HTTP_HEADER =
@@ -136,11 +136,11 @@ import java.net.Socket;
     // TODO connect and stream instead of accept.. my server should be "accepting"
     private void acceptAndStream() throws IOException
     {
-        Socket socket = new Socket("104.236.177.158", 2000);
+        Socket socket = new Socket("162.243.196.153", 4000);
         DataOutputStream stream = null;
         stream = new DataOutputStream(socket.getOutputStream());
-        stream.writeBytes(HTTP_HEADER);
-        stream.flush();
+//        stream.writeBytes(HTTP_HEADER);
+//        stream.flush();
         Log.d(TAG, "Accept and stream");
 
         try

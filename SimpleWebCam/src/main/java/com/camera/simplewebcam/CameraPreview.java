@@ -50,7 +50,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	private int cameraBase=4;
 	
 	// This definition also exists in ImageProc.h.
-	// Webcam must support the resolution 640x480 with YUYV format. 
+	// Webcam must support the resolution 640x480 with YUYV format.
 	static final int IMG_WIDTH=640;
 	static final int IMG_HEIGHT=480;
 
@@ -87,6 +87,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		super(context,attributeset);
 		this.context = context;
 		if(DEBUG) Log.d("WebCam","CameraPreview constructed");
+		Log.d(TAG, "make camera preview");
 		setFocusable(true);
 		
 		
@@ -94,8 +95,8 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		holder.addCallback(this);
 		holder.setType(SurfaceHolder.SURFACE_TYPE_NORMAL);
 
-		mJpegOutputStream = new MemoryOutputStream(10000000);
-		mMJpegHttpStreamer = new MJpegHttpStreamer(2000, 10000000);
+		mJpegOutputStream = new MemoryOutputStream(9000000);
+		mMJpegHttpStreamer = new MJpegHttpStreamer(2000, 9000000);
 		mMJpegHttpStreamer.start();
 	}
 	
@@ -112,7 +113,6 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     	
 		@Override
 		public boolean queueIdle() {
-
 			/*
 			 * loop in the idle queue unless there are new messages
 			 */
@@ -156,7 +156,9 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 			        	// camera image to bmp
 			        	pixeltobmp(bmp);	        		
 		        	}
-	            	
+
+					Log.d(TAG, "bmp size " + bmp.getWidth() + "x" + bmp.getHeight());
+
 	            	mx_canvas.reset();
 	            	// first apply flipping etc.
 	            	mx_canvas.postConcat(mx);
@@ -183,7 +185,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	            }
 
 	            if(shouldStop){
-	            	shouldStop = false;  
+	            	shouldStop = false;
 	            }	        
 	        }
 			 
@@ -226,6 +228,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
             	}
             }
         };
+		Log.d(TAG, "run handler");
         
         /*
          * add idle handler, this is where the video is processed
@@ -246,7 +249,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
-		if(DEBUG) Log.d("WebCam", "surfaceCreated");
+		Log.d("WebCam", "surfaceCreated");
 		if(bmp==null){
 			bmp = Bitmap.createBitmap(IMG_WIDTH, IMG_HEIGHT, Bitmap.Config.ARGB_8888);
 		}
@@ -261,12 +264,12 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-		if(DEBUG) Log.d("WebCam", "surfaceChanged");
+		Log.d("WebCam", "surfaceChanged");
 	}
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
-		if(DEBUG) Log.d("WebCam", "surfaceDestroyed");
+		Log.d("WebCam", "surfaceDestroyed");
 		if(cameraExists){
 			shouldStop = true;
 			while(shouldStop){
@@ -276,5 +279,5 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 			}
 		}
 		stopCamera();
-	}   
+	}
 }
