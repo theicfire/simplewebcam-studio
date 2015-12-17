@@ -30,7 +30,7 @@ import android.graphics.RectF;
 public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback, Runnable {
 
 	private static final String TAG = MJpegHttpStreamer.class.getSimpleName();
-	private static final boolean DEBUG = false;
+	private static final boolean DEBUG = true;
 	protected Context context;
 	private SurfaceHolder holder;
     Thread mainLoop = null;
@@ -186,7 +186,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
 	            if(shouldStop){
 	            	shouldStop = false;
-	            }	        
+	            }
 	        }
 			 
 			return true;

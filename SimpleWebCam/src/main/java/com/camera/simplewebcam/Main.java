@@ -17,6 +17,10 @@ import android.widget.ImageButton;
 import android.app.KeyguardManager;
 import com.camera.simplewebcam.push.PushNotifications;
 
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+
 public class Main extends Activity {
 	
 	private static final String PREFERENCES_MATRIX = "com.camera.simplewebcam.flipmatrix_";
@@ -38,6 +42,12 @@ public class Main extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		new Utils.PostReq(new Utils.PostReq.Callback() {
+			@Override
+			public void onComplete(Boolean result) {
+				Log.d(TAG, result ? "Done sending cameraOn" : "Error sending cameraOn");
+			}
+		}).execute(Utils.METEOR_URL + "/setGlobalState/cameraOn/true");
 		takePicture tpListener = new takePicture();
 		
 		setContentView(R.layout.main);
@@ -73,6 +83,7 @@ public class Main extends Activity {
 		
 	}
 
+
     @Override
     protected void onResume()
     {
@@ -104,11 +115,18 @@ public class Main extends Activity {
 		String intentText = intent.getStringExtra(Intent.EXTRA_TEXT);
 		Log.d(TAG, "got intent text" + intentText);
 		if (intentText.equalsIgnoreCase("camera_on")) {
-			mWakeLock.acquire();
+			// This intent isn't hit when we kill the process and start it (that is, never resuming the process)
 		} else if (intentText.equalsIgnoreCase("camera_off")) {
 			Log.d(TAG, "TURN OFF");
-			// hacky but works!
-			android.os.Process.killProcess(android.os.Process.myPid());
+			new Utils.PostReq(new Utils.PostReq.Callback() {
+				@Override
+				public void onComplete(Boolean result) {
+					if (result) {
+						Log.d(TAG, "Done sending cameraOn, now killing");
+						android.os.Process.killProcess(android.os.Process.myPid());
+					}
+				}
+			}).execute(Utils.METEOR_URL + "/setGlobalState/cameraOn/false");
 		}
 	}
 
