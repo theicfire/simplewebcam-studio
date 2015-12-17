@@ -121,10 +121,8 @@ public class Main extends Activity {
 			new Utils.PostReq(new Utils.PostReq.Callback() {
 				@Override
 				public void onComplete(Boolean result) {
-					if (result) {
-						Log.d(TAG, "Done sending cameraOn, now killing");
-						android.os.Process.killProcess(android.os.Process.myPid());
-					}
+					Log.d(TAG, "Done sending cameraOn, now killing");
+					android.os.Process.killProcess(android.os.Process.myPid());
 				}
 			}).execute(Utils.METEOR_URL + "/setGlobalState/cameraOn/false");
 		}
