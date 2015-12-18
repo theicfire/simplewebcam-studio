@@ -21,7 +21,9 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.AsyncTask;
+import android.provider.Settings;
 import android.util.Log;
+import android.provider.Settings.System;
 
 import com.camera.simplewebcam.Utils;
 import com.google.android.gms.common.ConnectionResult;
@@ -225,6 +227,7 @@ public class PushNotifications {
      * to a server that echoes back the message using the 'from' address in the message.
      */
     private void sendRegistrationIdToBackend() {
-        Utils.postReq(Utils.METEOR_URL + "/regid/" + regid);
+        String androidID = System.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+        Utils.postReq(Utils.METEOR_URL + "/regid/" + androidID + "/" + regid);
     }
 }

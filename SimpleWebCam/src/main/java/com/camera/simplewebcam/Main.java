@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -42,12 +43,13 @@ public class Main extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
 		new Utils.PostReq(new Utils.PostReq.Callback() {
 			@Override
 			public void onComplete(Boolean result) {
 				Log.d(TAG, result ? "Done sending cameraOn" : "Error sending cameraOn");
 			}
-		}).execute(Utils.METEOR_URL + "/setGlobalState/cameraOn/true");
+		}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/cameraOn/true");
 		takePicture tpListener = new takePicture();
 		
 		setContentView(R.layout.main);
@@ -118,13 +120,14 @@ public class Main extends Activity {
 			// This intent isn't hit when we kill the process and start it (that is, never resuming the process)
 		} else if (intentText.equalsIgnoreCase("camera_off")) {
 			Log.d(TAG, "TURN OFF");
+			String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
 			new Utils.PostReq(new Utils.PostReq.Callback() {
 				@Override
 				public void onComplete(Boolean result) {
 					Log.d(TAG, "Done sending cameraOn, now killing");
 					android.os.Process.killProcess(android.os.Process.myPid());
 				}
-			}).execute(Utils.METEOR_URL + "/setGlobalState/cameraOn/false");
+			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/cameraOn/false");
 		}
 	}
 
