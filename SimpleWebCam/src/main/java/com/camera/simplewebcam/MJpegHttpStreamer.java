@@ -163,6 +163,7 @@ import java.net.Socket;
                         catch (final InterruptedException stopMayHaveBeenCalled)
                         {
                             // stop() may have been called
+                            Log.d(TAG, "stopMayHaveBeenCalled");
                             return;
                         } // catch
                     } // while

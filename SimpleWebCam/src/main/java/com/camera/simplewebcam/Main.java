@@ -17,6 +17,7 @@ import android.view.View.OnClickListener;
 import android.widget.ImageButton;
 import android.app.KeyguardManager;
 import com.camera.simplewebcam.push.PushNotifications;
+import com.camera.simplewebcam.push.GcmIntentService;
 
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
@@ -53,6 +54,20 @@ public class Main extends Activity {
 		takePicture tpListener = new takePicture();
 		
 		setContentView(R.layout.main);
+
+		if (GcmIntentService.msg.equals("bumped")) {
+			// the app should turn off in 10 seconds
+			new Handler().postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					Intent sendIntent = new Intent(getApplicationContext(), Main.class);
+					sendIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+					sendIntent.setAction(Intent.ACTION_SEND);
+					sendIntent.putExtra(Intent.EXTRA_TEXT, "camera_off");
+					startActivity(sendIntent);
+				}
+			}, 5000);
+		}
 		
 		preferences = this.getPreferences(MODE_PRIVATE);
 		editor = preferences.edit();

@@ -47,7 +47,7 @@ public class GcmIntentService extends IntentService {
 
     }
     public static final String TAG = "GCM Demo";
-    public String msg;
+    public static String msg;
 
     @Override
     protected void onHandleIntent(Intent intent) {
@@ -70,14 +70,13 @@ public class GcmIntentService extends IntentService {
                 Log.e(TAG, "Deleted messages on server: " + extras.toString());
             // If it's a regular GCM message, do some work.
             } else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
-                final String msg = extras.getString("text");
                 Log.i(TAG, "Completed work @ " + SystemClock.elapsedRealtime());
-                Log.i(TAG, "Received: " + extras.getString("text"));
+                Log.i(TAG, "Received: " + msg);
 
                 Intent sendIntent = new Intent(getApplicationContext(), Main.class);
                 sendIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 sendIntent.setAction(Intent.ACTION_SEND);
-                sendIntent.putExtra(Intent.EXTRA_TEXT, extras.getString("text"));
+                sendIntent.putExtra(Intent.EXTRA_TEXT, msg);
                 startActivity(sendIntent);
             }
         }
