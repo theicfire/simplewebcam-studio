@@ -18,6 +18,10 @@ public class Utils {
     public static class PostReq extends AsyncTask<String, Void, Boolean> {
         private Callback callback;
 
+        public PostReq() {
+            super();
+        }
+
         public PostReq(Callback callback) {
             super();
             this.callback = callback;
@@ -31,7 +35,7 @@ public class Utils {
         protected Boolean doInBackground(String... urls) {
             HttpClient httpClient = new DefaultHttpClient();
             try {
-                Log.d(TAG, "SENDING request " + urls[0]);
+                Log.d(TAG, "SENDING callbacked request " + urls[0]);
                 HttpPost request = new HttpPost(urls[0]);
                 httpClient.execute(request);
                 return true;
@@ -55,6 +59,7 @@ public class Utils {
     public static void postReq(String url) {
         HttpClient httpClient = new DefaultHttpClient();
         try {
+            Log.d(TAG, "Sending regular req " + url);
             HttpPost request = new HttpPost(url);
             httpClient.execute(request);
         }catch (Exception ex) {

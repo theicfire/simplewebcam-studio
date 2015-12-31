@@ -1,9 +1,11 @@
 package com.camera.simplewebcam;
 
 import android.app.Activity;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.Intent;
 import android.graphics.Matrix;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -41,6 +43,11 @@ public class Main extends Activity {
 	SharedPreferences.Editor editor;
 	private PowerManager.WakeLock mWakeLock = null;
 
+	public Handler closeHandler;
+	public Runnable closeRunnable;
+	public boolean autocloseStopped = false;
+
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -55,18 +62,21 @@ public class Main extends Activity {
 		
 		setContentView(R.layout.main);
 
+		closeHandler = new Handler();
+		closeRunnable = new Runnable() {
+			@Override
+			public void run() {
+				Intent sendIntent = new Intent(getApplicationContext(), Main.class);
+				sendIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+				sendIntent.setAction(Intent.ACTION_SEND);
+				sendIntent.putExtra(Intent.EXTRA_TEXT, "camera_off");
+				startActivity(sendIntent);
+			}
+		};
 		if (GcmIntentService.msg.equals("bumped")) {
-			// the app should turn off in 10 seconds
-			new Handler().postDelayed(new Runnable() {
-				@Override
-				public void run() {
-					Intent sendIntent = new Intent(getApplicationContext(), Main.class);
-					sendIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-					sendIntent.setAction(Intent.ACTION_SEND);
-					sendIntent.putExtra(Intent.EXTRA_TEXT, "camera_off");
-					startActivity(sendIntent);
-				}
-			}, 5000);
+			handleBumped();
+		} else {
+			stopAutoclose();
 		}
 		
 		preferences = this.getPreferences(MODE_PRIVATE);
@@ -97,9 +107,34 @@ public class Main extends Activity {
 			mx_array[i] = preferences.getFloat(PREFERENCES_MATRIX + i,mx_array[i]);
 		}
 		this.cp.mx.setValues(mx_array);
-		
+        new Utils.PostReq().execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/bat/" + getBatteryLevel());
 	}
 
+	// If the camera was turned on because the bike was bumped, it should only stay on temporarily
+	public void handleBumped() {
+		if (!autocloseStopped) {
+			closeHandler.removeCallbacks(closeRunnable);
+			closeHandler.postDelayed(closeRunnable, 20000);
+		}
+	}
+
+    public float getBatteryLevel() {
+        Intent batteryIntent = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+
+        // Error checking that probably isn't needed but I added just in case.
+        if(level == -1 || scale == -1) {
+            return 50.0f;
+        }
+
+        return ((float)level / (float)scale) * 100.0f;
+    }
+
+	public void stopAutoclose() {
+		autocloseStopped = true;
+		closeHandler.removeCallbacks(closeRunnable);
+	}
 
     @Override
     protected void onResume()
@@ -133,9 +168,10 @@ public class Main extends Activity {
 		Log.d(TAG, "got intent text" + intentText);
 		if (intentText.equalsIgnoreCase("camera_on")) {
 			// This intent isn't hit when we kill the process and start it (that is, never resuming the process)
+			stopAutoclose();
 		} else if (intentText.equalsIgnoreCase("camera_off")) {
 			Log.d(TAG, "TURN OFF");
-			String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
+            String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
 			new Utils.PostReq(new Utils.PostReq.Callback() {
 				@Override
 				public void onComplete(Boolean result) {
@@ -143,7 +179,9 @@ public class Main extends Activity {
 					android.os.Process.killProcess(android.os.Process.myPid());
 				}
 			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/cameraOn/false");
-		}
+		} else if (intentText.equalsIgnoreCase("bumped")) {
+			handleBumped();
+        }
 	}
 
 
