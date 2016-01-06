@@ -168,7 +168,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
 	            	// draw camera bmp on canvas
 	            	canvas.drawBitmap(bmp, mx_canvas, null);
-					bmp.compress(Bitmap.CompressFormat.JPEG, 80, mJpegOutputStream);
+					bmp.compress(Bitmap.CompressFormat.JPEG, 25, mJpegOutputStream);
 					Log.d(TAG, "length of stream: " + mJpegOutputStream.getLength());
 					mMJpegHttpStreamer.streamJpeg(mJpegOutputStream.getBuffer(), mJpegOutputStream.getLength(),
 							System.currentTimeMillis());
