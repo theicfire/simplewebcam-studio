@@ -114,7 +114,7 @@ public class Main extends Activity {
 	public void handleBumped() {
 		if (!autocloseStopped) {
 			closeHandler.removeCallbacks(closeRunnable);
-			closeHandler.postDelayed(closeRunnable, 20000);
+			closeHandler.postDelayed(closeRunnable, 120000);
 		}
 	}
 
