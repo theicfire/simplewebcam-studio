@@ -52,6 +52,32 @@ public class Main extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		setContentView(R.layout.main);
+		final PowerManager powerManager =
+				(PowerManager) getSystemService(POWER_SERVICE);
+		mWakeLock = powerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+				WAKE_LOCK_TAG);
+
+		preferences = this.getPreferences(MODE_PRIVATE);
+		editor = preferences.edit();
+
+		takePicture tpListener = new takePicture();
+		takePictureButton = (ImageButton)findViewById(R.id.button1);
+		takePictureButton.setOnClickListener(tpListener);
+
+		cp = (CameraPreview)findViewById(R.id.cameraSurfaceView);
+		cp.setButtonObject(tpListener);
+
+		KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+		km.newKeyguardLock("name").disableKeyguard();
+
+		String intentText = getIntent().getStringExtra(Intent.EXTRA_TEXT);
+		handleIntent(intentText, true);
+		if ("alive_check".equalsIgnoreCase(intentText)) {
+			return;
+		}
+
 		String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
 		new Utils.PostReq(new Utils.PostReq.Callback() {
 			@Override
@@ -60,45 +86,28 @@ public class Main extends Activity {
 			}
 		}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/cameraOn/true");
 
-		takePicture tpListener = new takePicture();
-		
-		setContentView(R.layout.main);
-
-		closeHandler = new Handler();
-		closeRunnable = new Runnable() {
-			@Override
-			public void run() {
-				Intent sendIntent = new Intent(getApplicationContext(), Main.class);
-				sendIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-				sendIntent.setAction(Intent.ACTION_SEND);
-				sendIntent.putExtra(Intent.EXTRA_TEXT, "camera_off");
-				startActivity(sendIntent);
-			}
-		};
-		if (GcmIntentService.msg.equals("bumped")) {
+		if (!autocloseStopped) {
+			closeHandler = new Handler();
+			closeRunnable = new Runnable() {
+				@Override
+				public void run() {
+					Intent sendIntent = new Intent(getApplicationContext(), Main.class);
+					sendIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+					sendIntent.setAction(Intent.ACTION_SEND);
+					sendIntent.putExtra(Intent.EXTRA_TEXT, "camera_off");
+					startActivity(sendIntent);
+				}
+			};
+		}
+		if ("bumped".equals(intentText)) {
 			handleBumped();
 		} else {
 			stopAutoclose();
 		}
-		
-		preferences = this.getPreferences(MODE_PRIVATE);
-		editor = preferences.edit();
-		
-		takePictureButton = (ImageButton)findViewById(R.id.button1);
-		takePictureButton.setOnClickListener(tpListener);
 
-		cp = (CameraPreview)findViewById(R.id.cameraSurfaceView);
-		cp.setButtonObject(tpListener);
 
-		final PowerManager powerManager =
-				(PowerManager) getSystemService(POWER_SERVICE);
-		mWakeLock = powerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
-				WAKE_LOCK_TAG);
-
-				        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
-		km.newKeyguardLock("name").disableKeyguard();
 		(new PushNotifications(getApplicationContext(), this)).runRegisterInBackground();
-		
+
 		//load preferences to matrix
 		Matrix tmp_mx = new Matrix();
 		tmp_mx.reset();
@@ -111,6 +120,8 @@ public class Main extends Activity {
 		this.cp.mx.setValues(mx_array);
         new Utils.PostReq().execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/bat/" + getBatteryLevel());
 	}
+
+
 
 	public void keepChargeInRange() {
 		float bat = getBatteryLevel();
@@ -132,7 +143,7 @@ public class Main extends Activity {
 	}
 	// If the camera was turned on because the bike was bumped, it should only stay on temporarily
 	public void handleBumped() {
-		if (!autocloseStopped) {
+		if (!autocloseStopped && closeHandler != null) {
 			closeHandler.removeCallbacks(closeRunnable);
 			closeHandler.postDelayed(closeRunnable, 120000);
 		}
@@ -153,7 +164,9 @@ public class Main extends Activity {
 
 	public void stopAutoclose() {
 		autocloseStopped = true;
-		closeHandler.removeCallbacks(closeRunnable);
+		if (closeHandler != null) {
+			closeHandler.removeCallbacks(closeRunnable);
+		}
 	}
 
     @Override
@@ -174,8 +187,8 @@ public class Main extends Activity {
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// TODO Auto-generated method stub
 		
-		menu.add(MENU_GROUP_FLIP,MENU_ITEM_ID_FLIPLR,Menu.NONE,MENU_ITEM_FLIPLR);
-		menu.add(MENU_GROUP_FLIP,MENU_ITEM_ID_FLIPUD,Menu.NONE,MENU_ITEM_FLIPUD);
+		menu.add(MENU_GROUP_FLIP, MENU_ITEM_ID_FLIPLR, Menu.NONE, MENU_ITEM_FLIPLR);
+		menu.add(MENU_GROUP_FLIP, MENU_ITEM_ID_FLIPUD, Menu.NONE, MENU_ITEM_FLIPUD);
 		
 		return super.onCreateOptionsMenu(menu);
 	}
@@ -183,15 +196,17 @@ public class Main extends Activity {
 	protected void onNewIntent(Intent intent) {
 		super.onNewIntent(intent);
 		setIntent(intent);//must store the new intent unless getIntent() will return the old one
-		Log.d(TAG, "got intent");
 		String intentText = intent.getStringExtra(Intent.EXTRA_TEXT);
+		handleIntent(intentText, false);
+	}
+
+	private void handleIntent(String intentText, final boolean fromStartup) {
 		Log.d(TAG, "got intent text" + intentText);
-		if (intentText.equalsIgnoreCase("camera_on")) {
-			// This intent isn't hit when we kill the process and start it (that is, never resuming the process)
+		if ("camera_on".equalsIgnoreCase(intentText)) {
 			stopAutoclose();
-		} else if (intentText.equalsIgnoreCase("camera_off")) {
+		} else if ("camera_off".equalsIgnoreCase(intentText)) {
 			Log.d(TAG, "TURN OFF");
-            String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
+			String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
 			new Utils.PostReq(new Utils.PostReq.Callback() {
 				@Override
 				public void onComplete(Boolean result) {
@@ -199,22 +214,24 @@ public class Main extends Activity {
 					android.os.Process.killProcess(android.os.Process.myPid());
 				}
 			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/cameraOn/false");
-		} else if (intentText.equalsIgnoreCase("alive_check")) {
+		} else if ("alive_check".equalsIgnoreCase(intentText)) {
 			Log.d(TAG, "Alive check: check battery and send a response back");
 			keepChargeInRange();
 			String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
 			new Utils.PostReq(new Utils.PostReq.Callback() {
 				@Override
 				public void onComplete(Boolean result) {
-					Log.d(TAG, "Done sending phoneResponded, now killing");
-					android.os.Process.killProcess(android.os.Process.myPid());
+					Log.d(TAG, "Done sending phoneResponded");
+					if (fromStartup) {
+						android.os.Process.killProcess(android.os.Process.myPid());
+					}
 				}
-			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/phoneResponded/true");
-		} else if (intentText.equalsIgnoreCase("bumped")) {
-			handleBumped();
-        }
-	}
+			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/bat/" + getBatteryLevel());
 
+		} else if ("bumped".equalsIgnoreCase(intentText)) {
+			handleBumped();
+		}
+	}
 
 
 	@SuppressWarnings("null")

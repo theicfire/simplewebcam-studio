@@ -42,17 +42,13 @@ public class GcmIntentService extends IntentService {
     TextToSpeech ttobj;
 
     public GcmIntentService() {
-
         super("GcmIntentService");
-
     }
     public static final String TAG = "GCM Demo";
-    public static String msg = "";
 
     @Override
     protected void onHandleIntent(Intent intent) {
         Bundle extras = intent.getExtras();
-        msg = extras.getString("text");
         GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(this);
         // The getMessageType() intent parameter must be the intent you received
         // in your BroadcastReceiver.
@@ -71,12 +67,12 @@ public class GcmIntentService extends IntentService {
             // If it's a regular GCM message, do some work.
             } else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
                 Log.i(TAG, "Completed work @ " + SystemClock.elapsedRealtime());
-                Log.i(TAG, "Received: " + msg);
+                Log.i(TAG, "Received: " + extras.getString("text"));
 
                 Intent sendIntent = new Intent(getApplicationContext(), Main.class);
                 sendIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 sendIntent.setAction(Intent.ACTION_SEND);
-                sendIntent.putExtra(Intent.EXTRA_TEXT, msg);
+                sendIntent.putExtra(Intent.EXTRA_TEXT, extras.getString("text"));
                 startActivity(sendIntent);
             }
         }
