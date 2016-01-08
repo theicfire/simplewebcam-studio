@@ -206,10 +206,10 @@ public class Main extends Activity {
 			new Utils.PostReq(new Utils.PostReq.Callback() {
 				@Override
 				public void onComplete(Boolean result) {
-					Log.d(TAG, "Done sending cameraOn, now killing");
+					Log.d(TAG, "Done sending phoneResponded, now killing");
 					android.os.Process.killProcess(android.os.Process.myPid());
 				}
-			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/heartbeat/alive");
+			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/phoneResponded/true");
 		} else if (intentText.equalsIgnoreCase("bumped")) {
 			handleBumped();
         }
