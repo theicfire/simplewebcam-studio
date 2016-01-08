@@ -82,7 +82,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     {
     	this.buttonObject = buttonObject;
     }
-    
+
     public CameraPreview(Context context, AttributeSet attributeset) {
 		super(context,attributeset);
 		this.context = context;

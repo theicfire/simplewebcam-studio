@@ -25,6 +25,8 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 
+import java.io.IOException;
+
 public class Main extends Activity {
 	
 	private static final String PREFERENCES_MATRIX = "com.camera.simplewebcam.flipmatrix_";
@@ -35,8 +37,8 @@ public class Main extends Activity {
 	private static final int MENU_ITEM_ID_FLIPLR = 1;
 	private static final String MENU_ITEM_FLIPUD = "Flip Vertical";
 	private static final int MENU_ITEM_ID_FLIPUD = 2;
-	private static final int MENU_GROUP_FLIP = 1; 
-	
+	private static final int MENU_GROUP_FLIP = 1;
+
 	CameraPreview cp;
 	ImageButton takePictureButton;
 	SharedPreferences preferences;
@@ -46,7 +48,6 @@ public class Main extends Activity {
 	public Handler closeHandler;
 	public Runnable closeRunnable;
 	public boolean autocloseStopped = false;
-
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -58,6 +59,7 @@ public class Main extends Activity {
 				Log.d(TAG, result ? "Done sending cameraOn" : "Error sending cameraOn");
 			}
 		}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/cameraOn/true");
+
 		takePicture tpListener = new takePicture();
 		
 		setContentView(R.layout.main);
@@ -110,6 +112,24 @@ public class Main extends Activity {
         new Utils.PostReq().execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/bat/" + getBatteryLevel());
 	}
 
+	public void keepChargeInRange() {
+		float bat = getBatteryLevel();
+		if (bat > 90) {
+			setChargeState(false);
+		} else if (bat < 30) {
+			setChargeState(true);
+		}
+	}
+
+	public void setChargeState(boolean chargeOn) {
+		try {
+			String chargeVal = chargeOn ? "1" : "0";
+			Runtime.getRuntime().exec("su -c echo " + chargeVal + " > /sys/class/power_supply/battery/device/charge");
+		} catch (IOException e) {
+			Log.e(TAG, "problems with setChargeState", e);
+			e.printStackTrace();
+		}
+	}
 	// If the camera was turned on because the bike was bumped, it should only stay on temporarily
 	public void handleBumped() {
 		if (!autocloseStopped) {
@@ -179,6 +199,17 @@ public class Main extends Activity {
 					android.os.Process.killProcess(android.os.Process.myPid());
 				}
 			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/cameraOn/false");
+		} else if (intentText.equalsIgnoreCase("alive_check")) {
+			Log.d(TAG, "Alive check: check battery and send a response back");
+			keepChargeInRange();
+			String androidID = Settings.System.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
+			new Utils.PostReq(new Utils.PostReq.Callback() {
+				@Override
+				public void onComplete(Boolean result) {
+					Log.d(TAG, "Done sending cameraOn, now killing");
+					android.os.Process.killProcess(android.os.Process.myPid());
+				}
+			}).execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/heartbeat/alive");
 		} else if (intentText.equalsIgnoreCase("bumped")) {
 			handleBumped();
         }
@@ -266,7 +297,7 @@ class takePicture implements OnClickListener {
 		msg.arg1 = 2;
 		msg.what = 0;
 		workerThreadHandler.sendMessage(msg);
-		
+
 	}
 	
 }
