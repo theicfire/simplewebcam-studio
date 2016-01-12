@@ -49,6 +49,8 @@ public class Main extends Activity {
 	public Runnable closeRunnable;
 	public boolean autocloseStopped = false;
 
+	private boolean charging = false;
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -310,10 +312,16 @@ class takePicture implements OnClickListener {
 		
 		Log.d("takePicture", "clicked");
 
-		Message msg = workerThreadHandler.obtainMessage();
-		msg.arg1 = 2;
-		msg.what = 0;
-		workerThreadHandler.sendMessage(msg);
+//		Message msg = workerThreadHandler.obtainMessage();
+//		msg.arg1 = 2;
+//		msg.what = 0;
+//		workerThreadHandler.sendMessage(msg);
+		if (charging) {
+			setChargeState(false);
+		} else {
+			setChargeState(true);
+		}
+		charging = !charging;
 
 	}
 	
