@@ -120,7 +120,6 @@ public class Main extends Activity {
 			mx_array[i] = preferences.getFloat(PREFERENCES_MATRIX + i,mx_array[i]);
 		}
 		this.cp.mx.setValues(mx_array);
-        new Utils.PostReq().execute(Utils.METEOR_URL + "/setGlobalState/" + androidID + "/bat/" + getBatteryLevel());
 	}
 
 
