@@ -36,18 +36,18 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	private Bitmap bmp=null;
 	private Handler handler;
 	private takePicture buttonObject;
-	private final VideoHandler videoHandler = new VideoHandler(this); 
+	private final VideoHandler videoHandler = new VideoHandler(this);
 
 	private boolean cameraExists=false;
 	private boolean shouldStop=false;
-	
+
 	// /dev/videox (x=cameraId+cameraBase) is used.
 	// In some omap devices, system uses /dev/video[0-3],
 	// so users must use /dev/video[4-].
 	// In such a case, try cameraId=0 and cameraBase=4
 	private int cameraId=0;
 	private int cameraBase=4;
-	
+
 	// This definition also exists in ImageProc.h.
 	// Webcam must support the resolution 640x480 with YUYV format.
 	static final int IMG_WIDTH=640;
@@ -82,7 +82,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     static {
         System.loadLibrary("ImageProc");
     }
-    
+
     void setButtonObject(takePicture buttonObject)
     {
     	this.buttonObject = buttonObject;
@@ -94,8 +94,8 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		if(DEBUG) Log.d("WebCam","CameraPreview constructed");
 		Log.d(TAG, "make camera preview");
 		setFocusable(true);
-		
-		
+
+
 		holder = getHolder();
 		holder.addCallback(this);
 		holder.setType(SurfaceHolder.SURFACE_TYPE_NORMAL);
@@ -104,26 +104,26 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		mMJpegHttpStreamer = new MJpegHttpStreamer(2000, 9000000);
 		mMJpegHttpStreamer.start();
 	}
-	
-    
-    private class VideoHandler implements IdleHandler 
+
+
+    private class VideoHandler implements IdleHandler
     {
-    	
+
     	CameraPreview mCp;
-    	Matrix canvas_pos_scale = new Matrix(); 
-    	
+    	Matrix canvas_pos_scale = new Matrix();
+
     	public VideoHandler(CameraPreview cp) {
     		mCp = cp;
 		}
-    	
+
 		@Override
 		public boolean queueIdle() {
 			/*
 			 * loop in the idle queue unless there are new messages
 			 */
-			while(true && 
-				  (cameraExists || DEBUG)&& 
-				  !(handler.hasMessages(0))) 
+			while(true &&
+				  (cameraExists || DEBUG)&&
+				  !(handler.hasMessages(0)))
 			{
 	        	//Log.d("runnable","inside");
 	        	//obtaining display area to draw a large image
@@ -144,12 +144,12 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	        		}
 		        	canvas_pos_scale.setScale(scale_x, scale_y);
 	        	}
-	        	
-	        	
+
+
 	            Canvas canvas = getHolder().lockCanvas();
 	            if (canvas != null)
 	            {
-	            	
+
 		        	if(DEBUG)
 		        	{
 		        		bmp = Bitmap.createBitmap(mCp.winWidth, mCp.winHeight,Config.ARGB_8888);
@@ -162,6 +162,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 			        	pixeltobmp(bmp);
 		        	}
 
+					Log.d(TAG, "bmp size " + bmp.getWidth() + "x" + bmp.getHeight());
 					updateExposure();
 
 	            	mx_canvas.reset();
@@ -193,32 +194,39 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	            	shouldStop = false;
 	            }
 	        }
-			 
+
 			return true;
 		}
     }
-	
+
 	public void chooseExposure(int index) {
+		exposureIndex = index;
 		try {
 			Runtime.getRuntime().exec("/system/v4l2-ctl -d /dev/video4 -c exposure_absolute=" + exposures[index]);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		exposureIndex = index;
 		lastExposureChange = System.currentTimeMillis();
 	}
 
 	public void updateExposure() {
-		Log.d(TAG, "bmp size " + bmp.getWidth() + "x" + bmp.getHeight());
 		double lum = getAverageLuminance(bmp);
 		Log.d(TAG, "luminance: " + lum);
 
-		if (exposureSearching) {
+		if (!exposureSearching) {
+			boolean poorExposure = ((lum > 210 && exposureIndex > 0) || (lum < 40 && exposureIndex < exposures.length - 1));
+			if (System.currentTimeMillis() - lastExposureSearch > 5000 && poorExposure) {
+				Log.d(TAG, "Run exposure search");
+				chooseExposure(0);
+				exposureSearching = true;
+				lastExposureSearch = System.currentTimeMillis();
+			}
+		} else if (System.currentTimeMillis() - lastExposureChange > 300) {
 			exposureLuminanceResults[exposureIndex] = lum;
 			if (exposureIndex >= exposures.length - 1) {
 				exposureSearching = false;
 				int bestIndex = 0;
-				Log.d(TAG, "exposureLuminanceResults: " + Arrays.toString(exposureLuminanceResults));
+				Log.d(TAG, "exposureLuminanceResults" + Arrays.toString(exposureLuminanceResults));
 				for (int i = 1; i < exposureLuminanceResults.length; i++) {
 					if (Math.abs(exposureLuminanceResults[i] - 160) < Math.abs(exposureLuminanceResults[bestIndex] - 160)) {
 						bestIndex = i;
@@ -227,14 +235,6 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 				chooseExposure(bestIndex);
 			} else {
 				chooseExposure(exposureIndex + 1);
-			}
-		} else if (System.currentTimeMillis() - lastExposureChange > 300) {
-			boolean poorExposure = ((lum > 200 && exposureIndex > 0) || (lum < 40 && exposureIndex < exposures.length - 1));
-			if (poorExposure && System.currentTimeMillis() - lastExposureSearch > 5000) {
-				Log.d(TAG, "Run exposure search");
-				chooseExposure(0);
-				exposureSearching = true;
-				lastExposureSearch = System.currentTimeMillis();
 			}
 		}
 	}
@@ -260,9 +260,9 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
     @Override
     public void run() {
-    	
+
 	Looper.prepare();
-	
+
 	/*
 	 * currently every message will trigger saving an image
 	 */
@@ -272,11 +272,11 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
             	if(cameraExists)
             	{
 	        		Date date = new Date();
-	            	
+
 	        		File directory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM) + File.separator + "simplewebcam");
 	        		directory.mkdirs();
 	            	String filename = directory.getAbsoluteFile() + File.separator + String.valueOf(date.getTime()) + ".jpg";
-	            	
+
 	            	try {
 	         	       FileOutputStream out = new FileOutputStream(filename);
 	         	       bmp.compress(Bitmap.CompressFormat.JPEG, 90, out);
@@ -285,7 +285,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	         		       e.printStackTrace();
          		       Toast.makeText(context,"Failed to save image: " + filename, Toast.LENGTH_SHORT).show();
 	         		}
-	            	
+
             	}
             	else
             	{
@@ -294,7 +294,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
             }
         };
 		Log.d(TAG, "run handler");
-        
+
         /*
          * add idle handler, this is where the video is processed
          */
@@ -308,9 +308,9 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		msg.arg1 = 1;
 		msg.obj = this.handler;
 		buttonObject.getHandler().sendMessage(msg);
-		
+
 		Looper.loop();
-    }
+	}
 
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
@@ -320,14 +320,15 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		}
 		// /dev/videox (x=cameraId + cameraBase) is used
 		int ret = prepareCameraWithBase(cameraId, cameraBase);
-		
+
 		if(ret!=-1) cameraExists = true;
 
 		mainLoop = new Thread(this);
-        mainLoop.start();		
+        mainLoop.start();
 	}
 
-	
+
+
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 		Log.d("WebCam", "surfaceChanged");
@@ -339,7 +340,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		if(cameraExists){
 			shouldStop = true;
 			while(shouldStop){
-				try{ 
+				try{
 					Thread.sleep(100); // wait for thread stopping
 				}catch(Exception e){}
 			}
