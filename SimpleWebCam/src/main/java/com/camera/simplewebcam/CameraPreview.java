@@ -1,13 +1,12 @@
 package com.camera.simplewebcam;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.util.Date;
-import java.util.concurrent.Semaphore;
-
-import com.camera.simplewebcam.Main.takePicture;
-
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Rect;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -18,14 +17,14 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.Toast;
-import android.graphics.Bitmap;
-import android.graphics.Bitmap.Config;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Matrix;
-import android.graphics.Paint;
-import android.graphics.Rect;
-import android.graphics.RectF;
+
+import com.camera.simplewebcam.Main.takePicture;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Date;
 
 public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback, Runnable {
 
@@ -67,6 +66,12 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 	private Matrix mx_canvas = new Matrix();
 	private MemoryOutputStream mJpegOutputStream = null;
 	private MJpegHttpStreamer mMJpegHttpStreamer = null;
+	private long lastExposureChange = System.currentTimeMillis();
+	private int exposureIndex = -1;
+	private long lastExposureSearch = 0;
+	private boolean exposureSearching = false;
+	private int exposures[] = {10, 100, 170, 400, 500};
+	private double exposureLuminanceResults[] = {0,0,0,0,0};
 
     // JNI functions
     public native int prepareCamera(int videoid);
@@ -154,10 +159,10 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 			        	// obtaining a camera image (pixel data are stored in an array in JNI).
 			        	processCamera();
 			        	// camera image to bmp
-			        	pixeltobmp(bmp);	        		
+			        	pixeltobmp(bmp);
 		        	}
 
-					Log.d(TAG, "bmp size " + bmp.getWidth() + "x" + bmp.getHeight());
+					updateExposure();
 
 	            	mx_canvas.reset();
 	            	// first apply flipping etc.
@@ -192,7 +197,67 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 			return true;
 		}
     }
-    
+	
+	public void chooseExposure(int index) {
+		try {
+			Runtime.getRuntime().exec("/system/v4l2-ctl -d /dev/video4 -c exposure_absolute=" + exposures[index]);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		exposureIndex = index;
+		lastExposureChange = System.currentTimeMillis();
+	}
+
+	public void updateExposure() {
+		Log.d(TAG, "bmp size " + bmp.getWidth() + "x" + bmp.getHeight());
+		double lum = getAverageLuminance(bmp);
+		Log.d(TAG, "luminance: " + lum);
+
+		if (exposureSearching) {
+			exposureLuminanceResults[exposureIndex] = lum;
+			if (exposureIndex >= exposures.length - 1) {
+				exposureSearching = false;
+				int bestIndex = 0;
+				Log.d(TAG, "exposureLuminanceResults: " + Arrays.toString(exposureLuminanceResults));
+				for (int i = 1; i < exposureLuminanceResults.length; i++) {
+					if (Math.abs(exposureLuminanceResults[i] - 160) < Math.abs(exposureLuminanceResults[bestIndex] - 160)) {
+						bestIndex = i;
+					}
+				}
+				chooseExposure(bestIndex);
+			} else {
+				chooseExposure(exposureIndex + 1);
+			}
+		} else if (System.currentTimeMillis() - lastExposureChange > 300) {
+			boolean poorExposure = ((lum > 200 && exposureIndex > 0) || (lum < 40 && exposureIndex < exposures.length - 1));
+			if (poorExposure && System.currentTimeMillis() - lastExposureSearch > 5000) {
+				Log.d(TAG, "Run exposure search");
+				chooseExposure(0);
+				exposureSearching = true;
+				lastExposureSearch = System.currentTimeMillis();
+			}
+		}
+	}
+
+	public double getAverageLuminance(Bitmap b) {
+		int size = Math.min(b.getWidth(), b.getHeight());
+		final double GS_RED = 0.35;
+		final double GS_GREEN = 0.55;
+		final double GS_BLUE = 0.1;
+		int res = 0;
+		int padding = 20;
+		int count = 0;
+		for (int x = padding; x < size - padding; x+=10) {
+			for (int y = padding; y < size - padding; y+=10) {
+				int p = b.getPixel(x, y);
+				int brightness = (int) (GS_RED * Color.red(p) + GS_GREEN * Color.blue(p) + GS_BLUE * Color.green(p));
+				res += brightness;
+				count += 1;
+			}
+		}
+		return (double) res / count;
+	}
+
     @Override
     public void run() {
     	
@@ -257,10 +322,11 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 		int ret = prepareCameraWithBase(cameraId, cameraBase);
 		
 		if(ret!=-1) cameraExists = true;
-		
-        mainLoop = new Thread(this);
+
+		mainLoop = new Thread(this);
         mainLoop.start();		
 	}
+
 	
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
